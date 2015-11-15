@@ -49,18 +49,18 @@ $ man ipimtool::
 
 From customer's point of view, both tenant admin and tenant user, the
 lack of the soft power off and diagnostic interrupt (NMI [1]) lead the
-following inconvenience.
+following inconveniences.
 
 1. Customer cannot safely shutdown or soft power off their instance
-   without logging on by Ironic CLI or Ironic REST API in case of
+   without logging on, by Ironic CLI or Ironic REST API in case of
    tenant admin, by Nova CLI or NOVA REST API in case of tenant user.
 
 2. Customer cannot take NMI dump to investigate OS related problem by
-   themselves by Ironic CLI or Ironic REST API in case of tenant
+   themselves, by Ironic CLI or Ironic REST API in case of tenant
    admin, by Nova CLI or NOVA REST API in case of tenant user.
 
 From deployer's point of view, that is cloud provider, the lack of the
-two capabilities leads the following inconvenience.
+two capabilities leads the following inconveniences.
 
 1. Cloud provider support staff cannot shutdown customer's instance
    safely without logging on for hardware maintenance reason or etc.
@@ -73,30 +73,22 @@ Proposed change
 ===============
 In order to solve the problems described in the previous section,
 this spec proposes to enhance the power states and the PowerInterface
-base class so that each driver can implement to initiate/cancel soft
-reboot, soft power off and inject NMI.
+base class so that each driver can implement to initiate soft reboot,
+soft power off and inject NMI.
 
-This enhancement enables initiate/cancel the soft reboot, soft power
-off and inject NMI through Ironic CLI and REST API for tenant admin and
-cloud provider. Also this enhancement enables them through Nova CLI
-and REST API for tenant user when Nova's blue print [3] is implemented.
+And this enhancement enables the soft reboot, soft power off and
+inject NMI through Ironic CLI and REST API for tenant admin and cloud
+provider. Also this enhancement enables them through Nova CLI and REST
+API for tenant user when Nova's blue print [3] is implemented.
 
 This spec also proposes to implement the enhanced PowerInterface base
 class into the IPMIPower concrete class as a reference implementation.
 
-1. add the following new states to ironic.common.states, and CSP
-   channel to TaskManager::
+1. add the following new states to ironic.common.states::
 
-    REBOOT_SOFT = 'rebooting soft'
-    POWER_OFF_SOFT = 'power off soft'
+    REBOOT_SOFT = 'soft reboot'
+    POWER_OFF_SOFT = 'soft power off'
     INJECT_NMI = 'inject nmi'
-    CANCEL_REBOOT_SOFT = 'cancel rebooting soft'
-    CANCEL_POWER_OFF_SOFT = 'cancel power off soft'
-    CANCEL_INJECT_NMI = 'cancel inject nmi'
-
-    In order to support CANCEL_* task, CSP channel [4] is added
-    since it is easier and simpler than other communication mechanisms
-    such as semaphore, mutex, pipe, event, signal and etc.
 
 2. add "get_supported_power_states" method and default implementation
    in PowerInterface::
@@ -108,7 +100,9 @@ class into the IPMIPower concrete class as a reference implementation.
         :returns: A list with the supported power states defined
                   in :mod:`ironic.common.states`.
         """
-        return [states.POWER_ON, states.POWER_OFF, states.REBOOT,]
+        return [states.POWER_ON, states.POWER_OFF, states.REBOOT]
+
+        Note: WakeOnLanPower driver supports only states.POWER_ON.
 
 3. enhance "set_power_state" method in IPMIPower class so that the
    new states can be accepted as "power_state" parameter::
@@ -118,26 +112,14 @@ class into the IPMIPower concrete class as a reference implementation.
 
         The second parameter "power_state" indicates a new power state
         to be changed to.
-
-        :param task: A TaskManager instance containing the node to act on.
-        :param power_state: One of power state in :mod:`ironic.common.states`.
-        :raises: MissingParameterValue if a required parameter is missing.
         """
 
-    This IPMIPower reference implementation supports REBOOT_SOFT,
-    POWER_OFF_SOFT, CANCEL_REBOOT_SOFT, and CANCEL_POWER_OFF_SOFT.
+    This IPMIPower reference implementation supports SOFT_REBOOT,
+    SOFT_POWER_OFF and INJECT_NMI.
 
-    REBOOT_SOFT is implemented as POWER CYCLE such that REBOOT is
+    SOFT_REBOOT is implemented as POWER CYCLE such that REBOOT is
     implemented. This implementation enables generic BMC detect the
     reboot completion as the power state change from ON -> OFF -> ON.
-
-    However this reference implementation supports INJECT_NMI, but not
-    CANCEL_INJECT_NMI.
-
-    The reason is that INJECT_NMI cannot be implemented as POWER CYCLE
-    to preserve memory foot print, so power state keeps staying in ON
-    during injecting NMI. Therefor CANCEL_INJECT_NMI is not supported
-    by IPMIPower.
 
     The following table shows power state value of each state
     variables.
@@ -149,26 +131,37 @@ class into the IPMIPower concrete class as a reference implementation.
     new_state         | power_state  | target_power_state | power_state
                       | (start state)| (assigned value)   | (end state)
     ------------------+--------------+--------------------+--------------
-    SOFT_REBOOT       | POWER_ON     | POWER_OFF_SOFT     | POWER_OFF*1
+    SOFT_REBOOT       | POWER_ON     | SOFT_POWER_OFF     | POWER_OFF*1
                       | POWER_OFF*1  | POWER_ON           | POWER_ON
     SOFT_REBOOT       | POWER_OFF    | POWER_ON           | POWER_ON
-    POWER_OFF_SOFT    | POWER_ON     | POWER_OFF_SOFT     | POWER_OFF
-    POWER_OFF_SOFT    | POWER_OFF    | NONE               | POWER_OFF
+    SOFT_POWER_OFF    | POWER_ON     | SOFT_POWER_OFF     | POWER_OFF
+    SOFT_POWER_OFF    | POWER_OFF    | NONE               | POWER_OFF
     INJECT_NMI        | POWER_ON     | INJECT_NMI         | POWER_ON
-    INJECT_NMI        | POWER_OFF    | NONE               | ERROR
+    INJECT_NMI        | POWER_OFF    | NONE               | POWER_OFF
 
     *1) intermediate state of POWER CYCLE
         SOFT_REBOOT is implemented as power cycle such as REBOOT.
 
+    In case that timeout occurred during soft reboot, soft power off
+    or inject nmi, the end state becomes Error.
+
     new_state         | power_state  | target_power_state | power_state
-                      | (start state)| (current value)    | (end state)
+                      | (start state)| (assigned value)   | (end state)
     ------------------+--------------+--------------------+--------------
-    CANCEL_SOFT_REBOOT| not ERROR    | POWER_OFF_SOFT     | start state
-    CANCEL_SOFT_REBOOT| any state    | not POWER_OFF_SOFT | start state
-    CANCEL_POWER_OFF  | not ERROR    | POWER_OFF_SOFT     | POWER_ON
-    CANCEL_POWER_OFF  | any state    | not POWER_OFF_SOFT | start state
-    CANCEL_INJECT_NMI | not ERROR    | INJECT_NMI         | start state
-    CANCEL_INJECT_NMI | any state    | not INJECT_NMI     | start state
+    SOFT_REBOOT       | POWER_ON     | SOFT_POWER_OFF     | Error
+    SOFT_POWER_OFF    | POWER_ON     | SOFT_POWER_OFF     | Error
+    INJECT_NMI        | POWER_ON     | INJECT_NMI         | Error
+
+    The timeout can be configured in the Ironic configuration file,
+    typically /etc/ironic/ironic.conf, as follows.
+
+    [conductor]
+    # timeout (in seconds) of soft power off operation (integer value)
+    soft_power_off_timeout = 600
+
+    # timeout (in seconds) of inject nmi operation (integer value)
+    inject_nmi_timeout = 600
+
 
 4. add "get_supported_power_states" method and implementation in
    IPMIPower::
@@ -181,10 +174,14 @@ class into the IPMIPower concrete class as a reference implementation.
         :returns: A list with the supported power states defined
                   in :mod:`ironic.common.states`.
         """
-        return [states.POWER_ON, states.POWER_OFF, states.REBOOT,
-                states.REBOOT_SOFT, states.POWER_OFF_SOFT,
-                states.CANCEL_REBOOT_SOFT, states.CANCEL_POWER_OFF_SOFT.]
 
+        return [states.POWER_ON, states.POWER_OFF, states.REBOOT,
+                states.SOFT_REBOOT, states.SOFT_POWER_OFF_SOFT,
+                states.INJECT_NMI]
+        if node's properties/capabilities='{"soft_power": "true"}' and
+        properties/capabilities='{"inject_nmi": "true"}'.
+        otherwise exclude states.SOFT_REBOOT, states.SOFT_POWER_OFF_SOFT,
+        and/or states.INJECT_NMI from the returned value.
 
 Alternatives
 ------------
@@ -196,13 +193,7 @@ Alternatives
 
 Data model impact
 -----------------
-* The length of node power state columns needs to be extended from the
-  current 'String(15)' to 'String(255)' as followings::
-
-   power_state = Column(String(255), nullable=True)
-   target_power_state = Column(String(255), nullable=True)
-   provision_state = Column(String(255), nullable=True)
-
+None
 
 State Machine Impact
 --------------------
@@ -210,54 +201,19 @@ None
 
 REST API impact
 ---------------
-* Add support for REBOOT_SOFT, POWER_OFF_SOFT, INJECT_NMI,
-  CANCEL_REBOOT_SOFT, CANCEL_POWER_OFF_SOFT, and CANCEL_INJECT_NMI to
-  the following API. This API is async. In order to get the latest status,
-  call "GET /v1/nodes/(node_ident)/states" and check the returned
-  value of NodeStates.
+* Add support of SOFT_REBOOT, SOFT_POWER_OFF and INJECT_NMI to the
+  target parameter of following API::
 
-  PUT /v1/nodes/(node_ident)/states/power::
+   PUT /v1/nodes/(node_ident)/states/power
 
-   Set the power state of the node.
-     Normal http response code:
-       * 202: Accepted
-     Parameters:
-       * node_ident (uuid_or_name) – the UUID or logical name of a node.
-       * target (unicode) – The desired power state of the node.
-     Raises:
-       ClientSideError (HTTP 409) if a power operation is already in progress.
-     Raises:
-       InvalidStateRequested (HTTP 400) if the requested target state is not
-       valid/supported or if the node is in a state which should not
-       be interrupted, such as CLEANING, DELETING, ZAPPING.
+* Add a new "supported_power_states" member to the return type Node
+  and NodeStates, and enhance the following APIs::
 
-* Add a new "supported_power_states" member to type Node and
-  NodeStates, and enhance the following API so that returned table
-  contains "supported_power_states" member.
+   GET /v1/nodes/(node_ident)
 
-  GET /v1/nodes/(node_ident)::
+   GET /v1/nodes/(node_ident)/states
 
-   Retrieve information about the given node.
-     Normal http response code:
-       * 200: OK
-     Parameters:
-       * node_ident (uuid_or_name) – UUID or logical name of a node.
-       * fields (list) – Optional, a list with a specified set of
-         fields of the resource to be returned.
-     Return type:
-       Node
-
-  GET /v1/nodes/(node_ident)/states::
-
-   List the states of the node.
-     Normal http response code:
-       * 200: OK
-     Parameters:
-       * node_ident (uuid_or_name) – the UUID or logical_name of a node.
-    Return type:
-       NodeStates
-
-       Json example
+   Json example of the returned type NodeStates
        {
          "console_enabled": false,
          "last_error": null,
@@ -270,44 +226,14 @@ REST API impact
              "power on",
              "power off",
              "reboot",
-             "reboot soft",
-             "power off soft",
-             "cancel reboot soft",
-             "cancel power off soft",
-             "cancel inject nmi"
+             "soft reboot",
+             "soft power off",
+             "inject nmi"
           ]
         }
 
-
-Client (CLI) impact
--------------------
-* Enhance "ironic node-set-power-state" so that <power-state>
-  parameter can accept 'reboot_soft', 'soft_off', 'inject_nmi' [5],
-  'cancel_reboot_soft', 'cancel_soft_off', and 'cancel_inject_nmi'.
-  This CLI is async. In order to get the latest status,
-  call "ironic node-show-states" and check the returned value.::
-
-   usage: ironic node-set-power-state <node> <power-state>
-
-   Power a node on/off/reboot, power graceful off/reboot,
-   inject NMI to a node, cancel graceful off/reboot,
-   or cancel inject NMI.
-
-   Positional arguments
-
-   <node>
-
-       Name or UUID of the node.
-
-   <power-state>
-
-       'on', 'off', 'reboot', 'soft_reboot', 'soft_off',
-       'inject_nmi' [5], 'cancel_soft_reboot', 'cancel_soft_off' or
-       'cancel_inject_nmi'.
-
-
-* Enhance "ironic node-show" and "ironic node-show-states" so as to
-  return "supported_power_states" member in the table format.::
+   Consequently Ironic CLI "ironic node-show" and "ironic node-show-states" 
+   return "supported_power_states" member in the table format.
 
    example of "ironic node-show-states"
 
@@ -322,12 +248,31 @@ Client (CLI) impact
    | power_state            | power on                            |
    | provision_state        | active                              |
    | supported_power_states | ["power on", "power off", "reboot", |
-   |                        |   "reboot soft", "power off soft",  |
-   |                        |    "cancel reboot soft",            |
-   |                        |   "cancel power off soft",          |
-   |                        |    "cancel inject nmi"]             |
+   |                        |   "reboot soft", "soft power off",  |
+   |                        |   "inject nmi"]                     |
    +------------------------+-------------------------------------+
 
+Client (CLI) impact
+-------------------
+* Enhance "ironic node-set-power-state" so that <power-state>
+  parameter can accept 'soft_reboot', 'soft_off' and 'inject_nmi' [5].
+  This CLI is async. In order to get the latest status,
+  call "ironic node-show-states" and check the returned value.::
+
+   usage: ironic node-set-power-state <node> <power-state>
+
+   Power a node on/off/reboot, power graceful off/reboot,
+   inject NMI to a node.
+
+   Positional arguments
+
+   <node>
+
+       Name or UUID of the node.
+
+   <power-state>
+
+       'on', 'off', 'reboot', 'soft_reboot', 'soft_off', inject_nmi' [5] 
 
 RPC API impact
 --------------
@@ -352,7 +297,8 @@ Therefor Ironic Nova driver needs to be update to unify the behavior
 between virtual machine instance and bare-metal instance.
 
 This problem is reported as a bug [6]. How to fix this problem will be
-specified in the bug report [6].
+specified in the bug report [6] as well as nova blueprint [10] and
+spec [11].
 
 Security impact
 ---------------
@@ -363,35 +309,21 @@ Other end user impact
 * End user who has admin privilege such as tenant admin has to make
   sure the following:
 
- * set properties/capabilities='{"power_soft": "true"}' to a node if
+ * set properties/capabilities='{"soft_power": "true"}' to a node if 
    it is capable of soft reboot and soft power off.
-   If the key "power_soft" doesn't exist, or a value of the key
-   "power_soft" is set to other than "true", it is not capable of soft
+   If the key "soft_power" doesn't exist, or a value of the key
+   "soft_power" is set to other than "true", it is not capable of soft
    reboot and soft power off.
 
  * set properties/capabilities='{"inject_nmi": "true"}' to a node if
    it is capable of inject NMI.
    If the key "inject_nmi" doesn't exist, or a value of the key
-   "inject_nmi" is set to other than "ture", it is not capable of
+   "inject_nmi" is set to other than "true", it is not capable of
    inject NMI.
 
  * deploy or set up ACPI [7] controllable instance to the node. How to
    make the instance ACPI [7] controllable is described in
    "Dependencies" section.
-
-* End user who doesn't have admin privilege such as tenant user
-  requires the following to use this features:
-
- * In case of Ironic with Nova, use Nova CLI or Nova API which
-   implemented Nova's blue print [3], or ask end user who has admin
-   privilege such as tenant admin to enable this features.
-
- * In case of Ironic standalone, ask end user who has admin privilege
-   such as tenant admin to enable this features.
-   (Note: However how to control admin privilege is solely up to each
-   tenant in case of standalone mode, tenant could assign admin
-   privilege to all if this procedure is inconvenient.)
-
 
 Scalability impact
 ------------------
@@ -406,11 +338,15 @@ Other deployer impact
 * Deployer, cloud provider, needs to set up ACPI [7] capable bare
   metal servers in cloud environment.
 
-* change the default timeout value (sec) if necessary::
+* change the default timeout value (sec) in the Ironic configuration
+  file, typically /etc/ironic/ironic.conf if necessary::
 
-   CONF.conductor.power_off_soft_retry_timeout = 600
+  [conductor]
+  # timeout (in seconds) of soft power off operation (integer value)
+  soft_power_off_timeout = 600
 
-   CONF.conductor.power_inject_nmi_retry_timeout = 600
+  # timeout (in seconds) of inject nmi operation (integer value)
+  inject_nmi_timeout = 600
 
 Developer impact
 ----------------
@@ -431,20 +367,12 @@ Other contributors:
 
 Work Items
 ----------
-* Re-factor TaskManager and implement cancel-able task by adding CSP
-  channel [4] so that cancel task such as CANCEL_REBOOT_SOFT,
-  CANCEL_POWER_OFF_SOFT, and CANCEL_INJECT_NMI can cancel long running
-  task such as REBOOT_SOFT, POWER_OFF_SOFT and INJECT_NMI respectively.
-
 * Enhance PowerInterface class to support soft power off and
-  diagnostic interrupt (NMI [1]) as described "Proposed change".
+  inject nmi [1] as described "Proposed change".
 
 * Enhance Ironic API as described in "REST API impact".
 
 * Enhance Ironic CLI as described in "Client (CLI) impact".
-
-* Create a DB migration script to extend power state column length as
-  described in "Data model impact"
 
 * Implement the enhanced PowerInterface class into the concrete class
   IPMIPower.
@@ -455,7 +383,7 @@ Work Items
 
 Dependencies
 ============
-* Ironic conductor depends on ipmitool [2].
+* IPMIPower driver depends on ipmitool [2].
 
 * Ironic managed node depends on ACPI [7]. In case of Linux system,
   acpid [8] has to be installed. In case of Windows system, local
@@ -472,9 +400,15 @@ Upgrades and Backwards Compatibility
 ====================================
 None (Forwards Compatibility is out of scope)
 
+* Note
+  There's a backwards compatibility issue with the behavior of "nova
+  reboot --soft", but that is discussed in the Nova blueprint [10] and
+  spec [11] for the Ironic driver changes.
+
 Documentation Impact
 ====================
-* None (CLI and REST API reference manuals are generated automatically
+* The deployer doc needs to be updated.
+  (CLI and REST API reference manuals are generated automatically
   from source code)
 
 References
@@ -496,3 +430,7 @@ References
 [8] http://linux.die.net/man/8/acpid
 
 [9] https://technet.microsoft.com/en-us/library/jj852274%28v=ws.10%29.aspx
+
+[10] https://blueprints.launchpad.net/nova/+spec/soft-reboot-poweroff
+
+[11] https://review.openstack.org/#/c/229282/
