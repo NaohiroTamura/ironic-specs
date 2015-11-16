@@ -232,7 +232,7 @@ REST API impact
           ]
         }
 
-   Consequently Ironic CLI "ironic node-show" and "ironic node-show-states" 
+   Consequently Ironic CLI "ironic node-show" and "ironic node-show-states"
    return "supported_power_states" member in the table format.
 
    example of "ironic node-show-states"
@@ -272,7 +272,7 @@ Client (CLI) impact
 
    <power-state>
 
-       'on', 'off', 'reboot', 'soft_reboot', 'soft_off', inject_nmi' [5] 
+       'on', 'off', 'reboot', 'soft_reboot', 'soft_off', inject_nmi' [5]
 
 RPC API impact
 --------------
@@ -309,7 +309,7 @@ Other end user impact
 * End user who has admin privilege such as tenant admin has to make
   sure the following:
 
- * set properties/capabilities='{"soft_power": "true"}' to a node if 
+ * set properties/capabilities='{"soft_power": "true"}' to a node if
    it is capable of soft reboot and soft power off.
    If the key "soft_power" doesn't exist, or a value of the key
    "soft_power" is set to other than "true", it is not capable of soft
@@ -341,12 +341,12 @@ Other deployer impact
 * change the default timeout value (sec) in the Ironic configuration
   file, typically /etc/ironic/ironic.conf if necessary::
 
-  [conductor]
-  # timeout (in seconds) of soft power off operation (integer value)
-  soft_power_off_timeout = 600
+   [conductor]
+   # timeout (in seconds) of soft power off operation (integer value)
+   soft_power_off_timeout = 600
 
-  # timeout (in seconds) of inject nmi operation (integer value)
-  inject_nmi_timeout = 600
+   # timeout (in seconds) of inject nmi operation (integer value)
+   inject_nmi_timeout = 600
 
 Developer impact
 ----------------
