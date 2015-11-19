@@ -97,7 +97,7 @@ class into the IPMIPower concrete class as a reference implementation.
         """Get a list of the supported power states.
 
         :param task: A TaskManager instance containing the node to act on.
-        :returns: A list with the supported power states defined
+        :returns: A list of the supported power states defined
                   in :mod:`ironic.common.states`.
         """
         return [states.POWER_ON, states.POWER_OFF, states.REBOOT]
@@ -171,16 +171,16 @@ class into the IPMIPower concrete class as a reference implementation.
 
         :param task: A TaskManager instance containing the node to act on.
            currently not used.
-        :returns: A list with the supported power states defined
+        :returns: A list of the supported power states defined
                   in :mod:`ironic.common.states`.
         """
 
         return [states.POWER_ON, states.POWER_OFF, states.REBOOT,
-                states.SOFT_REBOOT, states.SOFT_POWER_OFF_SOFT,
+                states.SOFT_REBOOT, states.SOFT_POWER_OFF,
                 states.INJECT_NMI]
-        if node's properties/capabilities='{"soft_power": "true"}' and
+        if node's properties/capabilities='{"soft_power": "true"}' and/or
         properties/capabilities='{"inject_nmi": "true"}'.
-        otherwise exclude states.SOFT_REBOOT, states.SOFT_POWER_OFF_SOFT,
+        otherwise exclude states.SOFT_REBOOT, states.SOFT_POWER_OFF,
         and/or states.INJECT_NMI from the returned value.
 
 Alternatives
@@ -205,6 +205,12 @@ REST API impact
   target parameter of following API::
 
    PUT /v1/nodes/(node_ident)/states/power
+
+   The target parameter supports the following Json data respectively.
+
+   {"target": "soft reboot"}
+   {"target": "soft power off"}
+   {"target": "inject nmi"}
 
 * Add a new "supported_power_states" member to the return type Node
   and NodeStates, and enhance the following APIs::
@@ -298,7 +304,9 @@ between virtual machine instance and bare-metal instance.
 
 This problem is reported as a bug [6]. How to fix this problem will be
 specified in the bug report [6] as well as nova blueprint [10] and
-spec [11].
+spec [11]. (Nova team commented on [10] and [11] that they are not
+necessary, so they will be removed).
+
 
 Security impact
 ---------------
@@ -335,7 +343,7 @@ None
 
 Other deployer impact
 ---------------------
-* Deployer, cloud provider, needs to set up ACPI [7] capable bare
+* Deployer, cloud provider, need to set up ACPI [7] capable bare
   metal servers in cloud environment.
 
 * change the default timeout value (sec) in the Ironic configuration
@@ -402,8 +410,9 @@ None (Forwards Compatibility is out of scope)
 
 * Note
   There's a backwards compatibility issue with the behavior of "nova
-  reboot --soft", but that is discussed in the Nova blueprint [10] and
-  spec [11] for the Ironic driver changes.
+  reboot --soft", but Nova team commented on the Nova blueprint [10]
+  and spec [11] that they are not necessary for the Ironic driver
+  changes, so they will be removed.
 
 Documentation Impact
 ====================
