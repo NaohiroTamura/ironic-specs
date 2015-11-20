@@ -86,8 +86,8 @@ class into the IPMIPower concrete class as a reference implementation.
 
 1. add the following new states to ironic.common.states::
 
-    REBOOT_SOFT = 'soft reboot'
-    POWER_OFF_SOFT = 'soft power off'
+    SOFT_REBOOT = 'soft rebooting'
+    SOFT_POWER_OFF = 'soft power off'
     INJECT_NMI = 'inject nmi'
 
 2. add "get_supported_power_states" method and default implementation
@@ -142,15 +142,16 @@ class into the IPMIPower concrete class as a reference implementation.
     *1) intermediate state of POWER CYCLE
         SOFT_REBOOT is implemented as power cycle such as REBOOT.
 
-    In case that timeout occurred during soft reboot, soft power off
-    or inject nmi, the end state becomes Error.
+    In case that timeout occurred when the new_state is set either
+    SOFT_REBOOT, SOFT_POWER_OFF or INJECT_NMI, the end state becomes
+    ERROR.
 
     new_state         | power_state  | target_power_state | power_state
                       | (start state)| (assigned value)   | (end state)
     ------------------+--------------+--------------------+--------------
-    SOFT_REBOOT       | POWER_ON     | SOFT_POWER_OFF     | Error
-    SOFT_POWER_OFF    | POWER_ON     | SOFT_POWER_OFF     | Error
-    INJECT_NMI        | POWER_ON     | INJECT_NMI         | Error
+    SOFT_REBOOT       | POWER_ON     | SOFT_POWER_OFF     | ERROR
+    SOFT_POWER_OFF    | POWER_ON     | SOFT_POWER_OFF     | ERROR
+    INJECT_NMI        | POWER_ON     | INJECT_NMI         | ERROR
 
     The timeout can be configured in the Ironic configuration file,
     typically /etc/ironic/ironic.conf, as follows.
@@ -178,10 +179,20 @@ class into the IPMIPower concrete class as a reference implementation.
         return [states.POWER_ON, states.POWER_OFF, states.REBOOT,
                 states.SOFT_REBOOT, states.SOFT_POWER_OFF,
                 states.INJECT_NMI]
-        if node's properties/capabilities='{"soft_power": "true"}' and/or
-        properties/capabilities='{"inject_nmi": "true"}'.
-        otherwise exclude states.SOFT_REBOOT, states.SOFT_POWER_OFF,
-        and/or states.INJECT_NMI from the returned value.
+
+5. add 'soft_power' and 'inject_nmi' capabilities to REQUIRED_PROPERTIES
+   and "validate" method in IPMIPower validates them::
+
+    IPMIPower "validate" method validates whether or not a node has
+    the capabilities 'soft_power' and 'inject_nmi', and each
+    capability has boolean string value "true" or "false".
+
+    In general, if a driver supports SOFT_REBOOT and SOFT_POWER_OFF,
+    'soft_power' property must exit and it must have either "true" or
+    "false".
+    if a driver supports INJECT_NMI, 'inject_nmi' property must exits
+    and it must have either "true" or "false".
+
 
 Alternatives
 ------------
@@ -208,7 +219,7 @@ REST API impact
 
    The target parameter supports the following Json data respectively.
 
-   {"target": "soft reboot"}
+   {"target": "soft rebooting"}
    {"target": "soft power off"}
    {"target": "inject nmi"}
 
@@ -226,13 +237,13 @@ REST API impact
          "power_state": "power on",
          "provision_state": null,
          "provision_updated_at": null,
-         "target_power_state": "power off soft",
+         "target_power_state": "soft power off",
          "target_provision_state": "active",
          "supported_power_states": [
              "power on",
              "power off",
-             "reboot",
-             "soft reboot",
+             "rebooting",
+             "soft rebooting",
              "soft power off",
              "inject nmi"
           ]
@@ -243,20 +254,20 @@ REST API impact
 
    example of "ironic node-show-states"
 
-   +------------------------+-------------------------------------+
-   | Property               | Value                               |
-   +------------------------+-------------------------------------+
-   | target_power_state     | power off soft                      |
-   | target_provision_state | None                                |
-   | last_error             | None                                |
-   | console_enabled        | False                               |
-   | provision_updated_at   | 2015-08-01T00:00:00+00:00           |
-   | power_state            | power on                            |
-   | provision_state        | active                              |
-   | supported_power_states | ["power on", "power off", "reboot", |
-   |                        |   "reboot soft", "soft power off",  |
-   |                        |   "inject nmi"]                     |
-   +------------------------+-------------------------------------+
+   +------------------------+----------------------------------------+
+   | Property               | Value                                  |
+   +------------------------+----------------------------------------+
+   | target_power_state     | soft power off                         |
+   | target_provision_state | None                                   |
+   | last_error             | None                                   |
+   | console_enabled        | False                                  |
+   | provision_updated_at   | 2015-08-01T00:00:00+00:00              |
+   | power_state            | power on                               |
+   | provision_state        | active                                 |
+   | supported_power_states | ["power on", "power off", "rebooting", |
+   |                        |   "soft rebooting", "soft power off",  |
+   |                        |   "inject nmi"]                        |
+   +------------------------+----------------------------------------+
 
 Client (CLI) impact
 -------------------
@@ -305,7 +316,7 @@ between virtual machine instance and bare-metal instance.
 This problem is reported as a bug [6]. How to fix this problem will be
 specified in the bug report [6] as well as nova blueprint [10] and
 spec [11]. (Nova team commented on [10] and [11] that they are not
-necessary, so they will be removed).
+necessary, so they will be abandoned).
 
 
 Security impact
@@ -317,17 +328,17 @@ Other end user impact
 * End user who has admin privilege such as tenant admin has to make
   sure the following:
 
- * set properties/capabilities='{"soft_power": "true"}' to a node if
-   it is capable of soft reboot and soft power off.
+ * has to set properties/capabilities='{"soft_power": "true"}' or
+   '{"soft_power": "false"}' if a driver is capable of soft reboot and
+   soft power off.
    If the key "soft_power" doesn't exist, or a value of the key
-   "soft_power" is set to other than "true", it is not capable of soft
-   reboot and soft power off.
+   "soft_power" is set to other than "true" or "false", it causes error.
 
- * set properties/capabilities='{"inject_nmi": "true"}' to a node if
-   it is capable of inject NMI.
+ * has to set properties/capabilities='{"inject_nmi": "true"}' or
+   '{"inject_nmi": "false"}' if a driver is capable of inject NMI.
    If the key "inject_nmi" doesn't exist, or a value of the key
-   "inject_nmi" is set to other than "true", it is not capable of
-   inject NMI.
+   "inject_nmi" is set to other than "true" or "false", it causes
+   error.
 
  * deploy or set up ACPI [7] controllable instance to the node. How to
    make the instance ACPI [7] controllable is described in
@@ -412,7 +423,7 @@ None (Forwards Compatibility is out of scope)
   There's a backwards compatibility issue with the behavior of "nova
   reboot --soft", but Nova team commented on the Nova blueprint [10]
   and spec [11] that they are not necessary for the Ironic driver
-  changes, so they will be removed.
+  changes, so they will be abandoned.
 
 Documentation Impact
 ====================
