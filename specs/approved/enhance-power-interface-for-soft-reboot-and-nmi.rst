@@ -206,9 +206,11 @@ Data model impact
 -----------------
 None
 
+
 State Machine Impact
 --------------------
 None
+
 
 REST API impact
 ---------------
@@ -269,6 +271,7 @@ REST API impact
    |                        |   "inject nmi"]                        |
    +------------------------+----------------------------------------+
 
+
 Client (CLI) impact
 -------------------
 * Enhance "ironic node-set-power-state" so that <power-state>
@@ -291,15 +294,18 @@ Client (CLI) impact
 
        'on', 'off', 'reboot', 'soft_reboot', 'soft_off', inject_nmi' [5]
 
+
 RPC API impact
 --------------
 None
+
 
 Driver API impact
 -----------------
 PowerInterface base is enhanced by adding a new method,
 get_supported_power_states() which returns a list of supported power
 states.
+
 
 Nova driver impact
 ------------------
@@ -313,15 +319,17 @@ is hard reboot, and --hard option is meaningless to the Ironic instance.
 Therefor Ironic Nova driver needs to be update to unify the behavior
 between virtual machine instance and bare-metal instance.
 
-This problem is reported as a bug [6]. How to fix this problem will be
-specified in the bug report [6] as well as nova blueprint [10] and
-spec [11]. (Nova team commented on [10] and [11] that they are not
-necessary, so they will be abandoned).
+This problem is reported as a bug [6]. How to fix this problem is
+specified in nova blueprint [10] and spec [11].
+
+The default behavior change of "nova reboot" command is made by
+following the standard deprecation policy [12].
 
 
 Security impact
 ---------------
 None
+
 
 Other end user impact
 ---------------------
@@ -344,13 +352,16 @@ Other end user impact
    make the instance ACPI [7] controllable is described in
    "Dependencies" section.
 
+
 Scalability impact
 ------------------
 None
 
+
 Performance Impact
 ------------------
 None
+
 
 Other deployer impact
 ---------------------
@@ -367,10 +378,12 @@ Other deployer impact
    # timeout (in seconds) of inject nmi operation (integer value)
    inject_nmi_timeout = 600
 
+
 Developer impact
 ----------------
 * Each driver developer needs to follow this interface to implement
   this proposed feature.
+
 
 Implementation
 ==============
@@ -383,6 +396,7 @@ Primary assignee:
 
 Other contributors:
   None
+
 
 Work Items
 ----------
@@ -400,6 +414,7 @@ Work Items
 * Coordinate the work with Nova NMI support "Inject NMI to an
   instance" [3] if necessary.
 
+
 Dependencies
 ============
 * IPMIPower driver depends on ipmitool [2].
@@ -409,27 +424,30 @@ Dependencies
   security policy has to be set as described in "Shutdown: Allow
   system to be shut down without having to log on" [9].
 
+
 Testing
 =======
 * Unit Tests.
 
 * Each vendor plans Third Party CI Tests if implemented.
 
+
 Upgrades and Backwards Compatibility
 ====================================
 None (Forwards Compatibility is out of scope)
 
 * Note
-  There's a backwards compatibility issue with the behavior of "nova
-  reboot --soft", but Nova team commented on the Nova blueprint [10]
-  and spec [11] that they are not necessary for the Ironic driver
-  changes, so they will be abandoned.
+  The backwards compatibility issue of the default behavior change of
+  "nova reboot" command is made by following the standard deprecation
+  policy [12].
+
 
 Documentation Impact
 ====================
 * The deployer doc needs to be updated.
   (CLI and REST API reference manuals are generated automatically
   from source code)
+
 
 References
 ==========
@@ -454,3 +472,5 @@ References
 [10] https://blueprints.launchpad.net/nova/+spec/soft-reboot-poweroff
 
 [11] https://review.openstack.org/#/c/229282/
+
+[12] http://governance.openstack.org/reference/tags/assert_follows-standard-deprecation.html
