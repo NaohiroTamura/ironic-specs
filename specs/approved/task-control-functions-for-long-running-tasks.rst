@@ -15,11 +15,6 @@ Interface for Soft Power Off and NMI` [1], and mainly specifies a
 mechanism of supporting `abort` operation for `soft reboot`, `soft
 power off` and `inject nmi`.
 
-However the basic mechanism which this specification proposes can be
-generalized in concurrent programming to support not only `abort` but
-also `cancel`, `rollback`, `get status or current progress`,
-`suspend`, `resume` and alike which requires inter thread
-communication to control a background long running task.
 
 Problem description
 ===================
@@ -27,6 +22,7 @@ The power control operation such as `soft reboot`, `soft power off`
 and `inject nmi` would take a long time or could be hanged.
 
 However currently there is no way to abort those tasks.
+
 
 Proposed change
 ===============
@@ -93,13 +89,16 @@ Alternatives
 ------------
 None.
 
+
 Data model impact
 -----------------
 None
 
+
 State Machine Impact
 --------------------
 None
+
 
 REST API impact
 ---------------
@@ -165,6 +164,7 @@ REST API impact
    |                        |   "abort inject nmi"]                  |
    +------------------------+----------------------------------------+
 
+
 Client (CLI) impact
 -------------------
 * Enhance "ironic node-set-power-state" so that <power-state>
@@ -189,42 +189,52 @@ Client (CLI) impact
        'on', 'off', 'reboot', 'soft_reboot', 'soft_off', 'inject_nmi',
        'abort_soft_reboot', 'abort_soft_off', 'abort_inject_nmi',
 
+
 RPC API impact
 --------------
 None.
+
 
 Driver API impact
 -----------------
 None.
 
+
 Nova driver impact
 ------------------
 None.
+
 
 Security impact
 ---------------
 None.
 
+
 Other end user impact
 ---------------------
 None.
+
 
 Scalability impact
 ------------------
 None.
 
+
 Performance Impact
 ------------------
 None.
+
 
 Other deployer impact
 ---------------------
 None.
 
+
 Developer impact
 ----------------
 * Each driver developer needs to follow this interface to implement
   this proposed feature.
+
 
 Implementation
 ==============
@@ -236,6 +246,7 @@ Primary assignee:
 
 Other contributors:
   None
+
 
 Work Items
 ----------
@@ -250,10 +261,12 @@ Work Items
   IPMIPower.
   Implementing vendor's power concrete class is up to each vendor.
 
+
 Dependencies
 ============
 This spec is solely depends on the spec `Enhance Power Interface for
 Soft Power Off and Inject NMI` [1].
+
 
 Testing
 =======
@@ -261,13 +274,16 @@ Testing
 
 * Each vendor plans Third Party CI Tests if implemented.
 
+
 Upgrades and Backwards Compatibility
 ====================================
 None.
 
+
 Documentation Impact
 ====================
 * The deployer doc needs to be updated.
+
 
 References
 ==========
