@@ -157,11 +157,19 @@ class into the IPMIPower concrete class as a reference implementation.
     typically /etc/ironic/ironic.conf, as follows.
 
     [conductor]
-    # timeout (in seconds) of soft power off operation (integer value)
+    # This section defines generic default timeout values.
+    #
+    # timeout (in seconds) of soft reboot and soft power off operation
+    # (integer value)
     soft_power_off_timeout = 600
 
     # timeout (in seconds) of inject nmi operation (integer value)
     inject_nmi_timeout = 600
+
+    [ipmi]
+    # This section defines ipmi specific default timeout value
+    # timeout (in seconds) of inject nmi operation (integer value)
+    inject_nmi_timeout = 60
 
 
 4. add "get_supported_power_states" method and implementation in
@@ -369,14 +377,7 @@ Other deployer impact
   metal servers in cloud environment.
 
 * change the default timeout value (sec) in the Ironic configuration
-  file, typically /etc/ironic/ironic.conf if necessary::
-
-   [conductor]
-   # timeout (in seconds) of soft power off operation (integer value)
-   soft_power_off_timeout = 600
-
-   # timeout (in seconds) of inject nmi operation (integer value)
-   inject_nmi_timeout = 600
+  file, typically /etc/ironic/ironic.conf if necessary.
 
 
 Developer impact
@@ -438,7 +439,7 @@ None (Forwards Compatibility is out of scope)
 
 * Note
   The backwards compatibility issue of the default behavior change of
-  "nova reboot" command is made by following the standard deprecation
+  "nova reboot" command is solved by following the standard deprecation
   policy [12].
 
 
