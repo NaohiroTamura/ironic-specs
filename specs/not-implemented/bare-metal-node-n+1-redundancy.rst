@@ -1,0 +1,1 @@
+../approved/bare-metal-node-n+1-redundancy.rst
