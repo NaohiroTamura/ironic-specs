@@ -8,7 +8,7 @@
 Task control functions for long running tasks
 =============================================
 
-https://blueprints.launchpad.net/ironic/+spec/task-control-functions-for-long-running-tasks
+https://bugs.launchpad.net/ironic/+bug/1526768
 
 This proposal has been separated from the spec `Enhance Power
 Interface for Soft Power Off and NMI` [1], and mainly specifies a
@@ -287,4 +287,4 @@ Documentation Impact
 
 References
 ==========
-[1] https://blueprints.launchpad.net/ironic/+spec/enhance-power-interface-for-soft-reboot-and-nmi
+[1] `[RFE] Enhance Power Interface for Soft Power Off and Inject NMI <https://bugs.launchpad.net/ironic/+bug/1526226>`_
