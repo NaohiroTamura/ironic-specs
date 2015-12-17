@@ -8,7 +8,7 @@
 Enhance Power Interface for Soft Power Off and NMI
 ==================================================
 
-https://blueprints.launchpad.net/ironic/+spec/enhance-power-interface-for-soft-reboot-and-nmi
+https://bugs.launchpad.net/ironic/+bug/1526226
 
 The proposal presents the work required to enhance the power
 interface to support soft reboot, soft power off and diagnostic
