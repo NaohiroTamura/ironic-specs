@@ -8,7 +8,7 @@
 iRMC OOB rescue mode support
 ============================
 
-https://blueprints.launchpad.net/ironic/+spec/irmc-oob-rescue-mode-support
+https://bugs.launchpad.net/ironic/+bug/1526470
 
 The proposal presents the work required to add support for OOB (Out Of
 Band) rescue feature for FUJITSU PRIMERGY iRMC, integrated Remote
@@ -134,8 +134,8 @@ Documentation Impact
 
 References
 ==========
-[1] http://specs.openstack.org/openstack/ironic-specs/specs/liberty-implemented/irmc-virtualmedia-deploy-driver.html
+[1] https://specs.openstack.org/openstack/ironic-specs/specs/liberty-implemented/irmc-virtualmedia-deploy-driver.html
 
-[2] http://specs.openstack.org/openstack/ironic-specs/specs/approved/network-provider.html
+[2] https://specs.openstack.org/openstack/ironic-specs/specs/approved/network-provider.html
 
 [3] `Implement rescue mode <https://review.openstack.org/#/c/171878/>`_
