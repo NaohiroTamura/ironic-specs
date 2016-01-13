@@ -21,14 +21,14 @@ Problem description
 When a bare metal node is failed due to hardware problem or is likely
 to be failed due to a sign of hardware failure, this function allows
 to switch over the node safely to another bare metal node in short
-time if the failed node is booted from a share file system such as FC,
+time if the failed node is booted from a shared file system such as FC,
 FCoE, iSCSI, NFS and etc.
 
 
 Proposed change
 ===============
 Ironic CLI and API are enhanced to support Ironic CLI new sub-command
-`node-switchover`.
+``node-switchover``.
 
 `ironic node-switchover <source node> [<destination node>]`
 
@@ -77,12 +77,12 @@ REST API impact
 Add REST API end point to trigger the switching over of the node
 asynchronously.
 
-* PUT /v1/nodes/(node_ident)/switchover::
-  {"target_node": uuid_or_name}
+* PUT /v1/nodes/(src_node)/switchover::
+  {"dest_node": uuid_or_name}
 
   Request parameters
-  * node_ident (uuid_or_name) – UUID or logical name of a source node.
-  * target_node (uuid_or_name) – Optional. UUID or logical name of a
+  * src_ident (uuid_or_name) – UUID or logical name of a source node.
+  * dest_node (uuid_or_name) – Optional. UUID or logical name of a
   destination node.
 
   Normal response codes 202 Accepted
@@ -94,18 +94,20 @@ asynchronously.
 
 Client (CLI) impact
 -------------------
-Add `node-switchover` sub-command to trigger the switching over of the
+Add ``node-switchover`` sub-command to trigger the switching over of the
 node asynchronously.
 
-* ironic node-switchover <src id> [--destination <dst id>]::
-
-  * <src id> - Name or UUID of the source node
-  * --destination <id> - Optional. Name or UUID of the destination node
+* ironic node-switchover <src node> [--destination <dest node>]::
+  * <src node> - Name or UUID of the source node
+  * --destination <dest node> - Optional. Name or UUID of the
+  destination node
 
 
 RPC API impact
 --------------
-None
+Add a new method ``node_switchover`` which takes context, source
+node id and destination node id as input, and synchronously acquires
+lock and start node switchover.
 
 
 Driver API impact
@@ -116,7 +118,7 @@ ironic db` [1].
 
 Nova driver impact
 ------------------
-Nova driver is enhanced to support `nova evacuate` for Ironic server
+Nova driver is enhanced to support ``nova migrate`` for Ironic server
 instance. Nova driver enhancement is specified in Nova spec [3].
 
 
@@ -127,8 +129,8 @@ None
 
 Other end user impact
 ---------------------
-End user who doesn't administrator privilege must use `nova evacuate` [3]
- instead of `ironic switchover`.
+End user who doesn't administrator privilege must use ``nova migrate`` [3]
+instead of ``ironic node-switchover``.
 
 
 Scalability impact
@@ -201,5 +203,4 @@ References
 
 [2] `[RFE] Enhance Power Interface for Soft Power Off and Inject NMI <https://bugs.launchpad.net/ironic/+bug/1526226>`_
 
-[3] [TBD] nova driver enhancement for `nova evacuate` to support
-    Ironic server instance.
+[3] https://blueprints.launchpad.net/nova/+spec/baremetal-migration-evacuation
