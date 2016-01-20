@@ -20,7 +20,9 @@ iRMC Virtual Media driver supports OOB boot and deploy [1].
 
 However if rescue mode is booted from rescue network using Pluggable
 network providers [2], IB (In Band) rescue mode provides customer with
-NOT the same network configuration as costumer's production environment.
+NOT the same network configuration as customer's production environment.
+For example, if network card is CNA, flipping network would require to
+change FW settings.
 This would cause another problem when customer tried to investigate
 their problem in the production environment.
 
