@@ -196,9 +196,9 @@ class into the IPMIPower concrete class as a reference implementation.
     capability has boolean string value "true" or "false".
 
     In general, if a driver supports SOFT_REBOOT and SOFT_POWER_OFF,
-    'soft_power' property must exit and it must have either "true" or
+    'soft_power' property must exist and it must have either "true" or
     "false".
-    if a driver supports INJECT_NMI, 'inject_nmi' property must exits
+    if a driver supports INJECT_NMI, 'inject_nmi' property must exists
     and it must have either "true" or "false".
 
 
