@@ -25,6 +25,7 @@ Here is a part of ipmitool man page in which describes soft power off and
 diagnostic interrupt (NMI [1]).
 
 $ man ipimtool::
+
  ...
  power
 
@@ -84,7 +85,7 @@ API for tenant user when Nova's blue print [3] is implemented.
 This spec also proposes to implement the enhanced PowerInterface base
 class into the IPMIPower concrete class as a reference implementation.
 
-1. add the following new states to ironic.common.states::
+1. add the following new power states to ironic.common.states::
 
     SOFT_REBOOT = 'soft rebooting'
     SOFT_POWER_OFF = 'soft power off'
@@ -102,56 +103,53 @@ class into the IPMIPower concrete class as a reference implementation.
         """
         return [states.POWER_ON, states.POWER_OFF, states.REBOOT]
 
-        Note: WakeOnLanPower driver supports only states.POWER_ON.
+   * Note: WakeOnLanPower driver supports only states.POWER_ON.
 
 3. enhance "set_power_state" method in IPMIPower class so that the
-   new states can be accepted as "power_state" parameter::
+   new states can be accepted as "power_state" parameter.
 
-    def set_power_state(self, task, power_state):
-        """Set the power state of the task's node.
+   IPMIPower reference implementation supports SOFT_REBOOT,
+   SOFT_POWER_OFF and INJECT_NMI.
 
-        The second parameter "power_state" indicates a new power state
-        to be changed to.
-        """
+   SOFT_REBOOT is implemented by first SOFT_POWER_OFF and then a plain POWER_ON
+   such that Ironic implemented REBOOT. This implementation enables
+   generic BMC detect the reboot completion as the power state change
+   from ON -> OFF -> ON which power transition is called ``power cycle``.
 
-    This IPMIPower reference implementation supports SOFT_REBOOT,
-    SOFT_POWER_OFF and INJECT_NMI.
+   The following table shows power state value of each state variables.
+   ``new_state`` is a value of the second parameter of set_power_state()
+   function.
+   ``power_state`` is a value of node property.
+   ``target_power_state`` is a value of node property.
 
-    SOFT_REBOOT is implemented as POWER CYCLE such that REBOOT is
-    implemented. This implementation enables generic BMC detect the
-    reboot completion as the power state change from ON -> OFF -> ON.
+   +-----------------+--------------+--------------------+--------------+
+   |new_state        | power_state  | target_power_state | power_state  |
+   |                 | (start state)| (assigned value)   | (end state)  |
+   +-----------------+--------------+--------------------+--------------+
+   |SOFT_REBOOT      | POWER_ON     | SOFT_POWER_OFF     | POWER_OFF[*]_|
+   |                 | POWER_OFF[*]_| POWER_ON           | POWER_ON     |
+   |SOFT_REBOOT      | POWER_OFF    | POWER_ON           | POWER_ON     |
+   |SOFT_POWER_OFF   | POWER_ON     | SOFT_POWER_OFF     | POWER_OFF    |
+   |SOFT_POWER_OFF   | POWER_OFF    | NONE               | POWER_OFF    |
+   |INJECT_NMI       | POWER_ON     | INJECT_NMI         | POWER_ON     |
+   |INJECT_NMI       | POWER_OFF    | NONE               | POWER_OFF    |
+   +-----------------+--------------+--------------------+--------------+
 
-    The following table shows power state value of each state
-    variables.
-    ``new_state`` is a value of the second parameter of
-    set_power_state() function.
-    ``power_state`` is a value of node property.
-    ``target_power_state`` is a value of node property.
-
-    new_state         | power_state  | target_power_state | power_state
-                      | (start state)| (assigned value)   | (end state)
-    ------------------+--------------+--------------------+--------------
-    SOFT_REBOOT       | POWER_ON     | SOFT_POWER_OFF     | POWER_OFF*1
-                      | POWER_OFF*1  | POWER_ON           | POWER_ON
-    SOFT_REBOOT       | POWER_OFF    | POWER_ON           | POWER_ON
-    SOFT_POWER_OFF    | POWER_ON     | SOFT_POWER_OFF     | POWER_OFF
-    SOFT_POWER_OFF    | POWER_OFF    | NONE               | POWER_OFF
-    INJECT_NMI        | POWER_ON     | INJECT_NMI         | POWER_ON
-    INJECT_NMI        | POWER_OFF    | NONE               | POWER_OFF
-
-    *1) intermediate state of POWER CYCLE
-        SOFT_REBOOT is implemented as power cycle such as REBOOT.
+   .. [*] intermediate state of ``power cycle``.
+          SOFT_REBOOT is implemented as power cycle such as REBOOT.
 
     In case that timeout occurred when the new_state is set either
     SOFT_REBOOT, SOFT_POWER_OFF or INJECT_NMI, the end state becomes
     ERROR.
 
-    new_state         | power_state  | target_power_state | power_state
-                      | (start state)| (assigned value)   | (end state)
-    ------------------+--------------+--------------------+--------------
-    SOFT_REBOOT       | POWER_ON     | SOFT_POWER_OFF     | ERROR
-    SOFT_POWER_OFF    | POWER_ON     | SOFT_POWER_OFF     | ERROR
-    INJECT_NMI        | POWER_ON     | INJECT_NMI         | ERROR
+   +-----------------+--------------+--------------------+--------------+
+   |new_state        | power_state  | target_power_state | power_state  |
+   |                 | (start state)| (assigned value)   | (end state)  |
+   +-----------------+--------------+--------------------+--------------+
+   |SOFT_REBOOT      | POWER_ON     | SOFT_POWER_OFF     | ERROR        |
+   |SOFT_POWER_OFF   | POWER_ON     | SOFT_POWER_OFF     | ERROR        |
+   |INJECT_NMI       | POWER_ON     | INJECT_NMI         | ERROR        |
+   +-----------------+--------------+--------------------+--------------+
 
     The timeout can be configured in the Ironic configuration file,
     typically /etc/ironic/ironic.conf, as follows.
@@ -282,8 +280,9 @@ REST API impact
 
 Client (CLI) impact
 -------------------
-* Enhance "ironic node-set-power-state" so that <power-state>
-  parameter can accept 'soft_reboot', 'soft_off' and 'inject_nmi' [5].
+* Enhance Ironic CLI "ironic node-set-power-state" so that
+  <power-state> parameter can accept 'soft_reboot', 'soft_off' and
+  'inject_nmi' [5].
   This CLI is async. In order to get the latest status,
   call "ironic node-show-states" and check the returned value.::
 
@@ -300,8 +299,18 @@ Client (CLI) impact
 
    <power-state>
 
-       'on', 'off', 'reboot', 'soft_reboot', 'soft_off', inject_nmi' [5]
+       'on', 'off', 'reboot', 'soft_reboot', 'soft_off', inject_nmi'
 
+* Enhance OSC plugin "openstack baremetal node" so that the parameter
+  can accept 'soft_reboot', 'soft_off' and 'inject_nmi'.
+  This CLI is async. In order to get the latest status,
+  call "openstack baremetal node show" and check the returned value.::
+
+   openstack baremetal node soft_reboot <uuid>
+
+   openstack baremetal node power soft_off <uuid>
+
+   openstack baremetal node inject_nmi <uuid>
 
 RPC API impact
 --------------
@@ -356,10 +365,6 @@ Other end user impact
    "inject_nmi" is set to other than "true" or "false", it causes
    error.
 
- * deploy or set up ACPI [7] controllable instance to the node. How to
-   make the instance ACPI [7] controllable is described in
-   "Dependencies" section.
-
 
 Scalability impact
 ------------------
@@ -373,8 +378,8 @@ None
 
 Other deployer impact
 ---------------------
-* Deployer, cloud provider, need to set up ACPI [7] capable bare
-  metal servers in cloud environment.
+* Deployer, cloud provider, needs to set up ACPI [7] and NMI [1]
+  capable bare metal servers in cloud environment.
 
 * change the default timeout value (sec) in the Ironic configuration
   file, typically /etc/ironic/ironic.conf if necessary.
@@ -418,13 +423,14 @@ Work Items
 
 Dependencies
 ============
-* IPMIPower driver depends on ipmitool [2].
-
-* Ironic managed node depends on ACPI [7]. In case of Linux system,
+* Soft power off control depends on ACPI [7]. In case of Linux system,
   acpid [8] has to be installed. In case of Windows system, local
   security policy has to be set as described in "Shutdown: Allow
   system to be shut down without having to log on" [9].
 
+* NMI [1] reaction depends on Kernel Crash Dump Configuration. How to
+  set up the kernel dump can be found for Linux system in [13], and
+  for Windows in [14].
 
 Testing
 =======
@@ -475,3 +481,7 @@ References
 [11] https://review.openstack.org/#/c/229282/
 
 [12] http://governance.openstack.org/reference/tags/assert_follows-standard-deprecation.html
+
+[13] https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Kernel_Crash_Dump_Guide/
+
+[14] https://support.microsoft.com/en-us/kb/927069
