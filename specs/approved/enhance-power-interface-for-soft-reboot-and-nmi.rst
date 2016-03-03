@@ -151,8 +151,8 @@ class into the IPMIPower concrete class as a reference implementation.
    |INJECT_NMI       | POWER_ON     | INJECT_NMI         | ERROR        |
    +-----------------+--------------+--------------------+--------------+
 
-    The timeout can be configured in the Ironic configuration file,
-    typically /etc/ironic/ironic.conf, as follows.
+   The timeout can be configured in the Ironic configuration file,
+   typically /etc/ironic/ironic.conf, as follows::
 
     [conductor]
     # This section defines generic default timeout values.
@@ -187,17 +187,9 @@ class into the IPMIPower concrete class as a reference implementation.
                 states.INJECT_NMI]
 
 5. add 'soft_power' and 'inject_nmi' capabilities to REQUIRED_PROPERTIES
-   and "validate" method in IPMIPower validates them::
-
-    IPMIPower "validate" method validates whether or not a node has
-    the capabilities 'soft_power' and 'inject_nmi', and each
-    capability has boolean string value "true" or "false".
-
-    In general, if a driver supports SOFT_REBOOT and SOFT_POWER_OFF,
-    'soft_power' property must exist and it must have either "true" or
-    "false".
-    if a driver supports INJECT_NMI, 'inject_nmi' property must exists
-    and it must have either "true" or "false".
+   with the default value "true", and "validate" method in IPMIPower
+   validates if the value of the capabilities has boolean string value
+   "true" or "false".
 
 
 Alternatives
@@ -302,15 +294,17 @@ Client (CLI) impact
        'on', 'off', 'reboot', 'soft_reboot', 'soft_off', inject_nmi'
 
 * Enhance OSC plugin "openstack baremetal node" so that the parameter
-  can accept 'soft_reboot', 'soft_off' and 'inject_nmi'.
+  can accept 'reboot [--hard | --soft]', 'power off [--hard | --soft]'
+  and 'inject_nmi'. 'reboot --hard' and 'power off --hard' behave
+  same as 'reboot' and 'power off' respectively.
   This CLI is async. In order to get the latest status,
   call "openstack baremetal node show" and check the returned value.::
 
-   openstack baremetal node soft_reboot <uuid>
+   usage: openstack baremetal node reboot [--hard | --soft] <uuid>
 
-   openstack baremetal node power soft_off <uuid>
+   usage: openstack baremetal node power off [--hard | --soft] <uuid>
 
-   openstack baremetal node inject_nmi <uuid>
+   usage: openstack baremetal node inject_nmi <uuid>
 
 RPC API impact
 --------------
@@ -353,17 +347,13 @@ Other end user impact
 * End user who has admin privilege such as tenant admin has to make
   sure the following:
 
- * has to set properties/capabilities='{"soft_power": "true"}' or
-   '{"soft_power": "false"}' if a driver is capable of soft reboot and
-   soft power off.
-   If the key "soft_power" doesn't exist, or a value of the key
-   "soft_power" is set to other than "true" or "false", it causes error.
+ * has to set properties/capabilities='{"soft_power": "false"}' if a
+   driver is not capable of soft reboot and soft power off, because
+   the default is properties/capabilities='{"soft_power": "true"}'
 
- * has to set properties/capabilities='{"inject_nmi": "true"}' or
-   '{"inject_nmi": "false"}' if a driver is capable of inject NMI.
-   If the key "inject_nmi" doesn't exist, or a value of the key
-   "inject_nmi" is set to other than "true" or "false", it causes
-   error.
+ * has to set properties/capabilities='{"inject_nmi": "false"}' if a
+   driver is not capable of inject NMI, because the default is
+   properties/capabilities='{"inject_nmi": "true"}'
 
 
 Scalability impact
