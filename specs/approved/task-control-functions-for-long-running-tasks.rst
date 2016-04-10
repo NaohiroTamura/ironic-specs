@@ -18,16 +18,46 @@ power off` and `inject nmi`.
 
 Problem description
 ===================
-The power control operation such as `soft reboot`, `soft power off`
-and `inject nmi` would take a long time or could be hanged.
+The soft power control operation such as `soft reboot`, `soft power
+off` and `inject nmi` would take a long time or could be hanged.
 
 However currently there is no way to abort those tasks.
+Therefor user cannot do anything since Ironic conductor keeps blocking
+from other operations to the target bare metal node until the soft
+power control returns.
 
 
 Proposed change
 ===============
 In order to enable to abort those tasks, this spec proposes to
-introduce ABORT target power state as a transition state.
+make use of message queue as inter-threads communication mechanism
+between soft power off task/thread and abort task/thread.
+
+Basically abort task/thread sends a abort message to soft power
+task/thread through
+`eventlet queue <http://eventlet.net/doc/modules/queue.html>`_, then
+the soft power aborts by changing the power state to error state.
+
+Overall steps are described in the page 46 to 55 of Tokyo summit
+technical session slide `Ironic Towards Truly Open and Reliable,
+Eventually for Mission Critical
+<http://www.slideshare.net/naohirot/ironic-towards-truly-open-and-reliable-eventually-for-mission-critical/46>`_.
+
+
+Alternatives
+------------
+None.
+
+
+Data model impact
+-----------------
+None
+
+
+State Machine Impact
+--------------------
+In order to enable to abort those tasks, it is necessary to introduce
+ABORT target power state as a transition state.
 
 The following changes are required:
 
@@ -84,20 +114,6 @@ The following changes are required:
     Note: This IPMIPower reference implementation supports
           SOFT_POWER_OFF and INJECT_NMI, but not states.ABORT_INJECT_NMI.
           However IRMCPower can supports all of three states.ABORT_*.
-
-Alternatives
-------------
-None.
-
-
-Data model impact
------------------
-None
-
-
-State Machine Impact
---------------------
-None
 
 
 REST API impact
@@ -251,7 +267,8 @@ Other contributors:
 Work Items
 ----------
 * Enhance PowerInterface class to support abort sort reboot, abort
-  soft power off and abort inject nmi as described "Proposed change".
+  soft power off and abort inject nmi as described in "State Machine
+  Impact".
 
 * Enhance Ironic API as described in "REST API impact".
 
