@@ -91,8 +91,8 @@ class into the IPMIPower concrete class as a reference implementation.
     SOFT_POWER_OFF = 'soft power off'
     INJECT_NMI = 'inject nmi'
 
-2. add "get_supported_power_states" method and default implementation
-   in PowerInterface::
+2. add "get_supported_power_states" method and its default implementation
+   to the base PowerInterface class in ironic/drivers/base.py::
 
     def get_supported_power_states(self, task):
         """Get a list of the supported power states.
@@ -139,8 +139,9 @@ class into the IPMIPower concrete class as a reference implementation.
           SOFT_REBOOT is implemented as power cycle such as REBOOT.
 
     In case that timeout occurred when the new_state is set either
-    SOFT_REBOOT, SOFT_POWER_OFF or INJECT_NMI, the end state becomes
-    ERROR.
+    SOFT_REBOOT or SOFT_POWER_OFF, the end state becomes ERROR.
+    Timeout never happens when the new_state is set to INJECT_NMI in
+    case of IPMIPower.
 
    +-----------------+--------------+--------------------+--------------+
    |new_state        | power_state  | target_power_state | power_state  |
@@ -148,7 +149,7 @@ class into the IPMIPower concrete class as a reference implementation.
    +-----------------+--------------+--------------------+--------------+
    |SOFT_REBOOT      | POWER_ON     | SOFT_POWER_OFF     | ERROR        |
    |SOFT_POWER_OFF   | POWER_ON     | SOFT_POWER_OFF     | ERROR        |
-   |INJECT_NMI       | POWER_ON     | INJECT_NMI         | ERROR        |
+   |INJECT_NMI       | POWER_ON     | INJECT_NMI         | POWER_ON     |
    +-----------------+--------------+--------------------+--------------+
 
    The timeout can be configured in the Ironic configuration file,
@@ -160,14 +161,6 @@ class into the IPMIPower concrete class as a reference implementation.
     # timeout (in seconds) of soft reboot and soft power off operation
     # (integer value)
     soft_power_off_timeout = 600
-
-    # timeout (in seconds) of inject nmi operation (integer value)
-    inject_nmi_timeout = 600
-
-    [ipmi]
-    # This section defines ipmi specific default timeout value
-    # timeout (in seconds) of inject nmi operation (integer value)
-    inject_nmi_timeout = 60
 
 
 4. add "get_supported_power_states" method and implementation in
@@ -217,7 +210,7 @@ REST API impact
 
    PUT /v1/nodes/(node_ident)/states/power
 
-   The target parameter supports the following Json data respectively.
+   The target parameter supports the following JSON data respectively.
 
    {"target": "soft rebooting"}
    {"target": "soft power off"}
@@ -230,7 +223,7 @@ REST API impact
 
    GET /v1/nodes/(node_ident)/states
 
-   Json example of the returned type NodeStates
+   JSON example of the returned type NodeStates
        {
          "console_enabled": false,
          "last_error": null,
@@ -315,7 +308,9 @@ Driver API impact
 -----------------
 PowerInterface base is enhanced by adding a new method,
 get_supported_power_states() which returns a list of supported power
-states.
+states as described in the section "Proposed change".
+And this enhancement keeps API backward compatible.
+Therefor it doesn't have any risk to break out of tree drivers.
 
 
 Nova driver impact
@@ -334,7 +329,8 @@ This problem is reported as a bug [6]. How to fix this problem is
 specified in nova blueprint [10] and spec [11].
 
 The default behavior change of "nova reboot" command is made by
-following the standard deprecation policy [12].
+following the standard deprecation policy [12]. How to deprecate nova
+command is also specified in nova blueprint [10] and spec [11].
 
 
 Security impact
@@ -347,13 +343,14 @@ Other end user impact
 * End user who has admin privilege such as tenant admin has to make
   sure the following:
 
- * has to set properties/capabilities='{"soft_power": "false"}' if a
-   driver is not capable of soft reboot and soft power off, because
-   the default is properties/capabilities='{"soft_power": "true"}'
+ * has to set properties/capabilities='{"soft_power": "false"}' if an
+   instance, user OS, is not capable of soft reboot and soft power
+   off, because the default is
+   properties/capabilities='{"soft_power": "true"}'
 
- * has to set properties/capabilities='{"inject_nmi": "false"}' if a
-   driver is not capable of inject NMI, because the default is
-   properties/capabilities='{"inject_nmi": "true"}'
+ * has to set properties/capabilities='{"inject_nmi": "false"}' if an
+   instance, user OS, is not capable of inject NMI, because the
+   default is properties/capabilities='{"inject_nmi": "true"}'
 
 
 Scalability impact
@@ -409,6 +406,8 @@ Work Items
 
 * Coordinate the work with Nova NMI support "Inject NMI to an
   instance" [3] if necessary.
+
+* Update the deployer documentation from the ironic perspective.
 
 
 Dependencies
