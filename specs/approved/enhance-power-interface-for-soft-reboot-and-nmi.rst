@@ -19,12 +19,13 @@ Problem description
 ===================
 There exists a problem in the current PowerInterface base class which
 doesn't provide with soft power off and diagnostic interrupt (NMI [1])
-capabilities even if ipmitool [2] and most of BMCs support.
+capabilities even though ipmitool [2] and most of BMCs support these
+capabilities.
 
 Here is a part of ipmitool man page in which describes soft power off and
 diagnostic interrupt (NMI [1]).
 
-$ man ipimtool::
+$ man ipmitool::
 
  ...
  power
@@ -53,12 +54,10 @@ lack of the soft power off and diagnostic interrupt (NMI [1]) lead the
 following inconveniences.
 
 1. Customer cannot safely shutdown or soft power off their instance
-   without logging on, by Ironic CLI or Ironic REST API in case of
-   tenant admin, by Nova CLI or NOVA REST API in case of tenant user.
+   without logging on.
 
 2. Customer cannot take NMI dump to investigate OS related problem by
-   themselves, by Ironic CLI or Ironic REST API in case of tenant
-   admin, by Nova CLI or NOVA REST API in case of tenant user.
+   themselves.
 
 From deployer's point of view, that is cloud provider, the lack of the
 two capabilities leads the following inconveniences.
@@ -80,7 +79,7 @@ soft power off and inject NMI.
 And this enhancement enables the soft reboot, soft power off and
 inject NMI through Ironic CLI and REST API for tenant admin and cloud
 provider. Also this enhancement enables them through Nova CLI and REST
-API for tenant user when Nova's blue print [3] is implemented.
+API for tenant user when Nova's blueprint [3] is implemented.
 
 This spec also proposes to implement the enhanced PowerInterface base
 class into the IPMIPower concrete class as a reference implementation.
