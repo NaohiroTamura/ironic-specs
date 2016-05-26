@@ -137,8 +137,10 @@ class into the IPMIPower concrete class as a reference implementation.
    .. [*] intermediate state of ``power cycle``.
           SOFT_REBOOT is implemented as power cycle such as REBOOT.
 
-    In case that timeout occurred when the new_state is set either
-    SOFT_REBOOT or SOFT_POWER_OFF, the end state becomes ERROR.
+    In case that timeout occurred when the new_state is set to either
+    SOFT_REBOOT or SOFT_POWER_OFF, the end state becomes ERROR for
+    logging, and then is overridden by a result of fallback hard POWER
+    OFF execution.
     Timeout never happens when the new_state is set to INJECT_NMI in
     case of IPMIPower.
 
@@ -178,10 +180,10 @@ class into the IPMIPower concrete class as a reference implementation.
                 states.SOFT_REBOOT, states.SOFT_POWER_OFF,
                 states.INJECT_NMI]
 
-5. add 'soft_power' and 'inject_nmi' capabilities to REQUIRED_PROPERTIES
-   with the default value "true", and "validate" method in IPMIPower
-   validates if the value of the capabilities has boolean string value
-   "true" or "false".
+5. add 'soft_power' and 'inject_nmi' capabilities with the default
+   value "true", and "validate" method in IPMIPower validates if the
+   value of the capabilities has boolean string value "true" or
+   "false".
 
 
 Alternatives
@@ -342,14 +344,14 @@ Other end user impact
 * End user who has admin privilege such as tenant admin has to make
   sure the following:
 
- * has to set properties/capabilities='{"soft_power": "false"}' if an
+ * has to set properties/capabilities='soft_power:false' if an
    instance, user OS, is not capable of soft reboot and soft power
    off, because the default is
-   properties/capabilities='{"soft_power": "true"}'
+   properties/capabilities='soft_power:true'
 
- * has to set properties/capabilities='{"inject_nmi": "false"}' if an
+ * has to set properties/capabilities='inject_nmi:false' if an
    instance, user OS, is not capable of inject NMI, because the
-   default is properties/capabilities='{"inject_nmi": "true"}'
+   default is properties/capabilities='inject_nmi:true'
 
 
 Scalability impact
