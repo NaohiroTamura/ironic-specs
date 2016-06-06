@@ -137,10 +137,13 @@ class into the IPMIPower concrete class as a reference implementation.
    .. [*] intermediate state of ``power cycle``.
           SOFT_REBOOT is implemented as power cycle such as REBOOT.
 
-    In case that timeout occurred when the new_state is set to either
-    SOFT_REBOOT or SOFT_POWER_OFF, the end state becomes ERROR for
-    logging, and then is overridden by a result of fallback hard POWER
-    OFF execution.
+    In case that timeout or error occurred when the new_state is set
+    to either SOFT_REBOOT or SOFT_POWER_OFF, the end state becomes
+    ERROR for logging, and then is overridden by a result of fallback
+    hard POWER OFF execution.
+
+    In case that error occurred when the new_state is set to INJECT_NMI,
+    the end state stays POWER_ON, but the error is logged.
     Timeout never happens when the new_state is set to INJECT_NMI in
     case of IPMIPower.
 
@@ -179,11 +182,6 @@ class into the IPMIPower concrete class as a reference implementation.
         return [states.POWER_ON, states.POWER_OFF, states.REBOOT,
                 states.SOFT_REBOOT, states.SOFT_POWER_OFF,
                 states.INJECT_NMI]
-
-5. add 'soft_power' and 'inject_nmi' capabilities with the default
-   value "true", and "validate" method in IPMIPower validates if the
-   value of the capabilities has boolean string value "true" or
-   "false".
 
 
 Alternatives
@@ -267,8 +265,8 @@ REST API impact
 Client (CLI) impact
 -------------------
 * Enhance Ironic CLI "ironic node-set-power-state" so that
-  <power-state> parameter can accept 'soft_reboot', 'soft_off' and
-  'inject_nmi' [5].
+  <power-state> parameter can accept 'soft-reboot', 'soft-off' and
+  'inject-nmi' [5].
   This CLI is async. In order to get the latest status,
   call "ironic node-show-states" and check the returned value.::
 
@@ -285,7 +283,7 @@ Client (CLI) impact
 
    <power-state>
 
-       'on', 'off', 'reboot', 'soft_reboot', 'soft_off', inject_nmi'
+       'on', 'off', 'reboot', 'soft-reboot', 'soft-off', inject-nmi'
 
 * Enhance OSC plugin "openstack baremetal node" so that the parameter
   can accept 'reboot [--hard | --soft]', 'power off [--hard | --soft]'
@@ -298,7 +296,7 @@ Client (CLI) impact
 
    usage: openstack baremetal node power off [--hard | --soft] <uuid>
 
-   usage: openstack baremetal node inject_nmi <uuid>
+   usage: openstack baremetal node inject-nmi <uuid>
 
 RPC API impact
 --------------
@@ -341,17 +339,7 @@ None
 
 Other end user impact
 ---------------------
-* End user who has admin privilege such as tenant admin has to make
-  sure the following:
-
- * has to set properties/capabilities='soft_power:false' if an
-   instance, user OS, is not capable of soft reboot and soft power
-   off, because the default is
-   properties/capabilities='soft_power:true'
-
- * has to set properties/capabilities='inject_nmi:false' if an
-   instance, user OS, is not capable of inject NMI, because the
-   default is properties/capabilities='inject_nmi:true'
+None
 
 
 Scalability impact
@@ -426,6 +414,8 @@ Testing
 =======
 * Unit Tests.
 
+* Tempest Tests, at least soft reboot/soft power off.
+
 * Each vendor plans Third Party CI Tests if implemented.
 
 
@@ -441,9 +431,8 @@ None (Forwards Compatibility is out of scope)
 
 Documentation Impact
 ====================
-* The deployer doc needs to be updated.
-  (CLI and REST API reference manuals are generated automatically
-  from source code)
+* The deployer doc and REST API reference manual need to be updated.
+  (CLI manual is generated automatically from source code)
 
 
 References
