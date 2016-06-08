@@ -407,8 +407,8 @@ Dependencies
   system to be shut down without having to log on" [9].
 
 * NMI [1] reaction depends on Kernel Crash Dump Configuration. How to
-  set up the kernel dump can be found for Linux system in [13], and
-  for Windows in [14].
+  set up the kernel dump can be found for Linux system in [13], [14], and
+  for Windows in [15].
 
 Testing
 =======
@@ -463,4 +463,6 @@ References
 
 [13] https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Kernel_Crash_Dump_Guide/
 
-[14] https://support.microsoft.com/en-us/kb/927069
+[14] https://help.ubuntu.com/lts/serverguide/kernel-crash-dump.html
+
+[15] https://support.microsoft.com/en-us/kb/927069
