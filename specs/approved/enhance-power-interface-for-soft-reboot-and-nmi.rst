@@ -11,14 +11,14 @@ Enhance Power Interface for Soft Power Off and NMI
 https://bugs.launchpad.net/ironic/+bug/1526226
 
 The proposal presents the work required to enhance the power
-interface to support soft reboot, soft power off and diagnostic
-interrupt (NMI [1]).
+interface to support soft reboot and soft power off, and the
+management interface to support diagnostic interrupt (NMI [1]).
 
 
 Problem description
 ===================
-There exists a problem in the current PowerInterface base class which
-doesn't provide with soft power off and diagnostic interrupt (NMI [1])
+There exists a problem in the current Abstract Interface which doesn't
+provide with soft power off and diagnostic interrupt (NMI [1])
 capabilities even though ipmitool [2] and most of BMCs support these
 capabilities.
 
@@ -72,23 +72,25 @@ two capabilities leads the following inconveniences.
 Proposed change
 ===============
 In order to solve the problems described in the previous section,
-this spec proposes to enhance the power states and the PowerInterface
-base class so that each driver can implement to initiate soft reboot,
-soft power off and inject NMI.
+this spec proposes to enhance the power states, the PowerInterface
+base class and the ManagementInterface base class so that each driver
+can implement to initiate soft reboot, soft power off and inject NMI.
 
 And this enhancement enables the soft reboot, soft power off and
 inject NMI through Ironic CLI and REST API for tenant admin and cloud
 provider. Also this enhancement enables them through Nova CLI and REST
 API for tenant user when Nova's blueprint [3] is implemented.
 
-This spec also proposes to implement the enhanced PowerInterface base
-class into the IPMIPower concrete class as a reference implementation.
+As a reference implementation, this spec also proposes to implement
+the enhanced PowerInterface base class into the IPMIPower concrete
+class and the enhanced ManagementInterface base class into the
+IPMIManagement concrete class.
+
 
 1. add the following new power states to ironic.common.states::
 
     SOFT_REBOOT = 'soft rebooting'
     SOFT_POWER_OFF = 'soft power off'
-    INJECT_NMI = 'inject nmi'
 
 2. add "get_supported_power_states" method and its default implementation
    to the base PowerInterface class in ironic/drivers/base.py::
@@ -104,11 +106,33 @@ class into the IPMIPower concrete class as a reference implementation.
 
    * Note: WakeOnLanPower driver supports only states.POWER_ON.
 
-3. enhance "set_power_state" method in IPMIPower class so that the
+3. add add two default parameters ``soft_timeout=-1`` and
+   ``fall_back_hard=False`` into the "set_power_state" method in to
+   the base PowerInterface class in ironic/drivers/base.py::
+
+    @abc.abstractmethod
+    def set_power_state(self, task, power_state,
+                        soft_timeout=-1, fall_back_hard=False):
+        """Set the power state of the task's node.
+
+        :param task: a TaskManager instance containing the node to act on.
+        :param power_state: Any power state from :mod:`ironic.common.states`.
+        :param soft_timeout: ``positive integer`` overrides
+           ``soft_power_off_timeout`` in the Ironic configuration file.
+           ``0`` indicates no timeout.
+           ``negative integer`` indicates to use ``soft_power_off_timeout``
+           in the Ironic configuration file.
+        :param fall_back_hard: ``True`` indicates to fall back hard power
+           operation if soft power operation failed.
+           ``False`` indicates no fall back.
+        :raises: MissingParameterValue if a required parameter is missing.
+        """
+
+4. enhance "set_power_state" method in IPMIPower class so that the
    new states can be accepted as "power_state" parameter.
 
-   IPMIPower reference implementation supports SOFT_REBOOT,
-   SOFT_POWER_OFF and INJECT_NMI.
+   IPMIPower reference implementation supports SOFT_REBOOT and
+   SOFT_POWER_OFF.
 
    SOFT_REBOOT is implemented by first SOFT_POWER_OFF and then a plain POWER_ON
    such that Ironic implemented REBOOT. This implementation enables
@@ -130,8 +154,6 @@ class into the IPMIPower concrete class as a reference implementation.
    |SOFT_REBOOT      | POWER_OFF    | POWER_ON           | POWER_ON     |
    |SOFT_POWER_OFF   | POWER_ON     | SOFT_POWER_OFF     | POWER_OFF    |
    |SOFT_POWER_OFF   | POWER_OFF    | NONE               | POWER_OFF    |
-   |INJECT_NMI       | POWER_ON     | INJECT_NMI         | POWER_ON     |
-   |INJECT_NMI       | POWER_OFF    | NONE               | POWER_OFF    |
    +-----------------+--------------+--------------------+--------------+
 
    .. [*] intermediate state of ``power cycle``.
@@ -140,23 +162,21 @@ class into the IPMIPower concrete class as a reference implementation.
     In case that timeout or error occurred when the new_state is set
     to either SOFT_REBOOT or SOFT_POWER_OFF, the end state becomes
     ERROR for logging, and then is overridden by a result of fallback
-    hard POWER OFF execution.
-
-    In case that error occurred when the new_state is set to INJECT_NMI,
-    the end state stays POWER_ON, but the error is logged.
-    Timeout never happens when the new_state is set to INJECT_NMI in
-    case of IPMIPower.
+    hard POWER OFF execution if ``fall_back_hard=True`` optional
+    parameter is specified.
 
    +-----------------+--------------+--------------------+--------------+
    |new_state        | power_state  | target_power_state | power_state  |
    |                 | (start state)| (assigned value)   | (end state)  |
    +-----------------+--------------+--------------------+--------------+
-   |SOFT_REBOOT      | POWER_ON     | SOFT_POWER_OFF     | ERROR        |
-   |SOFT_POWER_OFF   | POWER_ON     | SOFT_POWER_OFF     | ERROR        |
-   |INJECT_NMI       | POWER_ON     | INJECT_NMI         | POWER_ON     |
+   |SOFT_REBOOT      | POWER_ON     | SOFT_POWER_OFF     | ERROR[*]     |
+   |SOFT_POWER_OFF   | POWER_ON     | SOFT_POWER_OFF     | ERROR[*]     |
    +-----------------+--------------+--------------------+--------------+
 
-   The timeout can be configured in the Ironic configuration file,
+   .. [*] ERROR state will be overwritten by fall back hard operation
+          or periodic sync power status task.
+
+   The default timeout can be configured in the Ironic configuration file,
    typically /etc/ironic/ironic.conf, as follows::
 
     [conductor]
@@ -167,7 +187,7 @@ class into the IPMIPower concrete class as a reference implementation.
     soft_power_off_timeout = 600
 
 
-4. add "get_supported_power_states" method and implementation in
+5. add "get_supported_power_states" method and implementation in
    IPMIPower::
 
     def get_supported_power_states(self, task):
@@ -180,8 +200,21 @@ class into the IPMIPower concrete class as a reference implementation.
         """
 
         return [states.POWER_ON, states.POWER_OFF, states.REBOOT,
-                states.SOFT_REBOOT, states.SOFT_POWER_OFF,
-                states.INJECT_NMI]
+                states.SOFT_REBOOT, states.SOFT_POWER_OFF]
+
+6. add "inject_nmi" abstrace method to the base ManagementInterface
+   class in ironic/drivers/base.py::
+
+    @abc.abstractmethod
+    def inject_nmi(self, task):
+        """Inject NMI, Non Maskable Interrupt.
+
+        :param task: A TaskManager instance containing the node to act on.
+        :returns: None
+        """
+
+7. add "inject_nmi" concrete method implementation in IPMIManagement
+   class.
 
 
 Alternatives
@@ -204,16 +237,27 @@ None
 
 REST API impact
 ---------------
-* Add support of SOFT_REBOOT, SOFT_POWER_OFF and INJECT_NMI to the
-  target parameter of following API::
+* Add support of SOFT_REBOOT and SOFT_POWER_OFF to the target
+  parameter of following API::
 
    PUT /v1/nodes/(node_ident)/states/power
 
    The target parameter supports the following JSON data respectively.
+   ``soft_power_off_timeout`` is an optional parameter which overrides
+   ``soft_power_off_timeout`` in the in the Ironic configuration file,
+   typically /etc/ironic/ironic.conf.
+   ``fall_back_hard`` is also an optional parameter which overrides the
+   default behavior ``fall_back_hard=False``.
 
-   {"target": "soft rebooting"}
-   {"target": "soft power off"}
-   {"target": "inject nmi"}
+   Examples
+
+     {"target": "soft reboot",
+      "soft_power_off_timeout": 900,
+      "fall_back_hard: true}
+
+     {"target": "soft power off",
+      "soft_power_off_timeout": 600,
+      "fall_back_hard: false}
 
 * Add a new "supported_power_states" member to the return type Node
   and NodeStates, and enhance the following APIs::
@@ -236,8 +280,7 @@ REST API impact
              "power off",
              "rebooting",
              "soft rebooting",
-             "soft power off",
-             "inject nmi"
+             "soft power off"
           ]
         }
 
@@ -257,23 +300,27 @@ REST API impact
    | power_state            | power on                               |
    | provision_state        | active                                 |
    | supported_power_states | ["power on", "power off", "rebooting", |
-   |                        |   "soft rebooting", "soft power off",  |
-   |                        |   "inject nmi"]                        |
+   |                        |   "soft rebooting", "soft power off"]  |
    +------------------------+----------------------------------------+
+
+* Add a new management API to support inject NMI::
+
+   PUT /v1/nodes/(node_ident)/management/inject_nmi
+
+   Request doesn't take any parameter.
 
 
 Client (CLI) impact
 -------------------
 * Enhance Ironic CLI "ironic node-set-power-state" so that
-  <power-state> parameter can accept 'soft-reboot', 'soft-off' and
-  'inject-nmi' [5].
+  <power-state> parameter can accept 'soft-reboot' and 'soft-off'.
   This CLI is async. In order to get the latest status,
   call "ironic node-show-states" and check the returned value.::
 
    usage: ironic node-set-power-state <node> <power-state>
+          [--soft-timeout <timeout> [--fall-back-hard]]
 
-   Power a node on/off/reboot, power graceful off/reboot,
-   inject NMI to a node.
+   Power a node on/off/reboot, power graceful off/reboot to a node.
 
    Positional arguments
 
@@ -283,20 +330,43 @@ Client (CLI) impact
 
    <power-state>
 
-       'on', 'off', 'reboot', 'soft-reboot', 'soft-off', inject-nmi'
+       'on', 'off', 'reboot', 'soft-reboot', 'soft-off'
+
+   Optional arguments:
+
+      --soft-timeout <timeout>
+         overrides ``soft_power_off_timeout`` in the in the Ironic
+         configuration file, typically /etc/ironic/ironic.conf.
+
+      --fall-back-hard
+        If 'soft-reboot' or 'soft-off' failed, the action falls back
+        to hard power operation.
+
+* Add a new Ironic CLI "ironic node-inject-nmi" to support inject nmi.
+  This CLI is async. In order to get the latest status, serial console
+  access is required.::
+
+   usage: ironic node-inject-nmi <node>
+
+   Inject NMI, Non Maskable Interrupt.
+
+   Positional arguments
+
+   <node>
+
+       Name or UUID of the node.
 
 * Enhance OSC plugin "openstack baremetal node" so that the parameter
-  can accept 'reboot [--hard | --soft]', 'power off [--hard | --soft]'
-  and 'inject_nmi'. 'reboot --hard' and 'power off --hard' behave
-  same as 'reboot' and 'power off' respectively.
+  can accept 'reboot [--soft [timeout] [--force]]', 'power [on|off
+  [--soft [timeout] [--force]]]' and 'inject_nmi'.
   This CLI is async. In order to get the latest status,
   call "openstack baremetal node show" and check the returned value.::
 
-   usage: openstack baremetal node reboot [--hard | --soft] <uuid>
+   usage: openstack baremetal node reboot [--soft [timeout] [--force]] <uuid>
 
-   usage: openstack baremetal node power off [--hard | --soft] <uuid>
+   usage: openstack baremetal node power off [--soft [timeout] [--force]] <uuid>
 
-   usage: openstack baremetal node inject-nmi <uuid>
+   usage: openstack baremetal node inject_nmi <uuid>
 
 RPC API impact
 --------------
@@ -305,10 +375,10 @@ None
 
 Driver API impact
 -----------------
-PowerInterface base is enhanced by adding a new method,
-get_supported_power_states() which returns a list of supported power
-states as described in the section "Proposed change".
-And this enhancement keeps API backward compatible.
+PowerInterface base and ManagementInterface base are enhanced by
+adding a new method respectively as described in the section "Proposed
+change".
+And these enhancements keep API backward compatible.
 Therefor it doesn't have any risk to break out of tree drivers.
 
 
@@ -382,16 +452,18 @@ Other contributors:
 
 Work Items
 ----------
-* Enhance PowerInterface class to support soft power off and
-  inject nmi [1] as described "Proposed change".
+* Enhance PowerInterface class and  ManagementInterface class to
+  support soft power off and inject nmi [1] as described "Proposed
+  change".
 
 * Enhance Ironic API as described in "REST API impact".
 
 * Enhance Ironic CLI as described in "Client (CLI) impact".
 
 * Implement the enhanced PowerInterface class into the concrete class
-  IPMIPower.
-  Implementing vendor's power concrete class is up to each vendor.
+  IPMIPower, and the enhanced ManagementInterface class into the
+  concrete class IPMIManagement.
+  Implementing vendor's concrete class is up to each vendor.
 
 * Coordinate the work with Nova NMI support "Inject NMI to an
   instance" [3] if necessary.
