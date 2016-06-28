@@ -17,7 +17,7 @@ management interface to support diagnostic interrupt (NMI [1]).
 
 Problem description
 ===================
-There exists a problem in the current Abstract Interface which doesn't
+There exists a problem in the current driver interface which doesn't
 provide with soft power off and diagnostic interrupt (NMI [1])
 capabilities even though ipmitool [2] and most of BMCs support these
 capabilities.
@@ -106,27 +106,34 @@ IPMIManagement concrete class.
 
    * Note: WakeOnLanPower driver supports only states.POWER_ON.
 
-3. add add two default parameters ``soft_timeout=-1`` and
-   ``fall_back_hard=False`` into the "set_power_state" method in to
-   the base PowerInterface class in ironic/drivers/base.py::
+3. add soft power off settings into Ironic configuration file and node
+   object's ``driver_info`` property.
 
-    @abc.abstractmethod
-    def set_power_state(self, task, power_state,
-                        soft_timeout=-1, fall_back_hard=False):
-        """Set the power state of the task's node.
+ * The default settings for all of nodes can be configured in the
+   Ironic configuration file, typically /etc/ironic/ironic.conf, as follows::
 
-        :param task: a TaskManager instance containing the node to act on.
-        :param power_state: Any power state from :mod:`ironic.common.states`.
-        :param soft_timeout: ``positive integer`` overrides
+    [conductor]
+    # This section defines generic default timeout values.
+    #
+    # timeout (in seconds) of soft reboot and soft power off operation.
+    # This value always has to be positive(> 0).
+    # (integer value)
+    soft_power_off_timeout = 600
+
+    # boolean value of fall back hard power off operation when soft
+    # power off or soft reboot failed.
+    # (boolean value)
+    fall_back_hard = false
+
+ * The settings for each node can be configured by setting driver_info
+   properties.
+
+  - ``driver_info/soft_timeout property`` to be ``positive integer``, overrides
            ``soft_power_off_timeout`` in the Ironic configuration file.
-           ``0`` indicates no timeout.
-           ``negative integer`` indicates to use ``soft_power_off_timeout``
-           in the Ironic configuration file.
-        :param fall_back_hard: ``True`` indicates to fall back hard power
-           operation if soft power operation failed.
-           ``False`` indicates no fall back.
-        :raises: MissingParameterValue if a required parameter is missing.
-        """
+
+  - ``driver_info/fall_back_hard`` property to be, when soft power
+    operation failed, ``True`` indicates to fall back hard power
+    operation, or ``False`` indicates no fall back.
 
 4. enhance "set_power_state" method in IPMIPower class so that the
    new states can be accepted as "power_state" parameter.
@@ -176,16 +183,6 @@ IPMIManagement concrete class.
    .. [*] ERROR state will be overwritten by fall back hard operation
           or periodic sync power status task.
 
-   The default timeout can be configured in the Ironic configuration file,
-   typically /etc/ironic/ironic.conf, as follows::
-
-    [conductor]
-    # This section defines generic default timeout values.
-    #
-    # timeout (in seconds) of soft reboot and soft power off operation
-    # (integer value)
-    soft_power_off_timeout = 600
-
 
 5. add "get_supported_power_states" method and implementation in
    IPMIPower::
@@ -202,7 +199,7 @@ IPMIManagement concrete class.
         return [states.POWER_ON, states.POWER_OFF, states.REBOOT,
                 states.SOFT_REBOOT, states.SOFT_POWER_OFF]
 
-6. add "inject_nmi" abstrace method to the base ManagementInterface
+6. add "inject_nmi" abstract method to the base ManagementInterface
    class in ironic/drivers/base.py::
 
     @abc.abstractmethod
@@ -318,7 +315,7 @@ Client (CLI) impact
   call "ironic node-show-states" and check the returned value.::
 
    usage: ironic node-set-power-state <node> <power-state>
-          [--soft-timeout <timeout> [--fall-back-hard]]
+          [--soft [--timeout <timeout>] [--fall-back-hard]]
 
    Power a node on/off/reboot, power graceful off/reboot to a node.
 
@@ -330,17 +327,19 @@ Client (CLI) impact
 
    <power-state>
 
-       'on', 'off', 'reboot', 'soft-reboot', 'soft-off'
+       'on', 'off', 'reboot'
 
    Optional arguments:
+      --soft
+        power graceful off/reboot.
 
-      --soft-timeout <timeout>
-         overrides ``soft_power_off_timeout`` in the in the Ironic
-         configuration file, typically /etc/ironic/ironic.conf.
+        --timeout <timeout>
+           overrides ``soft_power_off_timeout`` in the in the Ironic
+           configuration file, typically /etc/ironic/ironic.conf.
 
-      --fall-back-hard
-        If 'soft-reboot' or 'soft-off' failed, the action falls back
-        to hard power operation.
+        --fall-back-hard
+          If 'soft-reboot' or 'soft-off' failed, the action falls back
+          to hard power operation.
 
 * Add a new Ironic CLI "ironic node-inject-nmi" to support inject nmi.
   This CLI is async. In order to get the latest status, serial console
@@ -358,7 +357,7 @@ Client (CLI) impact
 
 * Enhance OSC plugin "openstack baremetal node" so that the parameter
   can accept 'reboot [--soft [timeout] [--force]]', 'power [on|off
-  [--soft [timeout] [--force]]]' and 'inject_nmi'.
+  [--soft [timeout] [--fall-back-hard]]]' and 'inject_nmi'.
   This CLI is async. In order to get the latest status,
   call "openstack baremetal node show" and check the returned value.::
 
