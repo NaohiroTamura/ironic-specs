@@ -302,8 +302,8 @@ REST API impact
 
 Client (CLI) impact
 -------------------
-* Enhance Ironic CLI "ironic node-set-power-state" so that
-  <power-state> parameter can accept 'soft-reboot' and 'soft-off'.
+* Enhance Ironic CLI "ironic node-set-power-state" to support power
+  graceful off/reboot by adding optional arguments.
   This CLI is async. In order to get the latest status,
   call "ironic node-show-states" and check the returned value.::
 
