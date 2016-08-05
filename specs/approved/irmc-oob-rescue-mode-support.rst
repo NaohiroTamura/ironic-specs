@@ -72,6 +72,10 @@ Nova driver impact
 ------------------
 None.
 
+Ramdisk impact
+--------------
+None
+
 Security impact
 ---------------
 None.
