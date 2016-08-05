@@ -122,6 +122,11 @@ Nova driver is enhanced to support ``nova migrate`` for Ironic server
 instance. Nova driver enhancement is specified in Nova spec [3].
 
 
+Ramdisk impact
+--------------
+None
+
+
 Security impact
 ---------------
 None
