@@ -46,7 +46,8 @@ Eventually for Mission Critical
 
 Alternatives
 ------------
-None.
+``timeout`` parameter of existing CLI, API, or configuration file can
+be used.
 
 
 Data model impact
